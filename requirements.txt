@@ -1,0 +1,5 @@
+numpy>=1.24
+scipy>=1.10
+opencv-python>=4.8
+# System dependency (not pip): ffmpeg must be on PATH for audio extraction and cutting.
+# For the interactive --select-roi picker, use opencv-python (not -headless).
