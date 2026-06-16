@@ -1,9 +1,11 @@
 """Command-line interface.
 
     python -m tennis_cut.cli match.mp4 -o cut.mp4
-    python -m tennis_cut.cli match.mp4 --dry-run            # just print segments + ffmpeg cmd
-    python -m tennis_cut.cli match.mp4 --select-roi -o cut.mp4
-    python -m tennis_cut.cli match.mp4 --roi 120 80 1600 700 -o cut.mp4
+    python -m tennis_cut.cli match.mp4 --dry-run                            # just print segments + ffmpeg cmd
+    python -m tennis_cut.cli match.mp4 --select-roi -o cut.mp4             # drag a rectangle
+    python -m tennis_cut.cli match.mp4 --roi 120 80 1600 700 -o cut.mp4   # rectangle by coords
+    python -m tennis_cut.cli match.mp4 --select-roi-trap -o cut.mp4        # click 4 corners
+    python -m tennis_cut.cli match.mp4 --roi-trap 200 80 1500 80 1700 900 100 900 -o cut.mp4
 """
 from __future__ import annotations
 
@@ -12,7 +14,7 @@ import json
 import sys
 
 from .config import Config
-from .cut_video import ffmpeg_cmd_string, render, select_roi
+from .cut_video import ffmpeg_cmd_string, render, select_roi, select_roi_trap
 from .segmenter import segment_video
 
 
@@ -24,8 +26,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--segments-json", help="Write detected keep-segments to this JSON file.")
 
     roi = p.add_mutually_exclusive_group()
-    roi.add_argument("--select-roi", action="store_true", help="Interactively pick the court ROI.")
-    roi.add_argument("--roi", nargs=4, type=int, metavar=("X", "Y", "W", "H"), help="Court ROI in original pixels.")
+    roi.add_argument("--select-roi", action="store_true",
+                     help="Interactively drag a rectangular court ROI.")
+    roi.add_argument("--roi", nargs=4, type=int, metavar=("X", "Y", "W", "H"),
+                     help="Rectangular court ROI in original pixels.")
+    roi.add_argument("--select-roi-trap", action="store_true",
+                     help="Click 4 court corners (TL→TR→BR→BL) for a trapezoidal ROI.")
+    roi.add_argument("--roi-trap", nargs=8, type=int,
+                     metavar=("X1", "Y1", "X2", "Y2", "X3", "Y3", "X4", "Y4"),
+                     help="Trapezoidal court ROI: 4 corner points TL TR BR BL in original pixels.")
 
     # A few of the most-tuned knobs exposed directly; everything else lives in Config.
     p.add_argument("--motion-fps", type=float, help="Visual sampling rate (main compute knob).")
@@ -39,7 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     cfg = Config()
-    if args.roi:
+    if args.roi_trap:
+        cfg.roi_trap = tuple(zip(args.roi_trap[::2], args.roi_trap[1::2]))  # type: ignore[assignment]
+    elif args.select_roi_trap:
+        cfg.roi_trap = select_roi_trap(args.video)
+    elif args.roi:
         cfg.roi = tuple(args.roi)            # type: ignore[assignment]
     elif args.select_roi:
         cfg.roi = select_roi(args.video)

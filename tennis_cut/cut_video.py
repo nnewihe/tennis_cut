@@ -58,3 +58,49 @@ def select_roi(video_path: str) -> Optional[Tuple[int, int, int, int]]:
     cv2.destroyAllWindows()
     x, y, w, h = (int(v) for v in r)
     return None if w == 0 or h == 0 else (x, y, w, h)
+
+
+def select_roi_trap(video_path: str) -> Optional[Tuple[Tuple[int, int], ...]]:
+    """Click 4 court corners (TL → TR → BR → BL), then press ENTER. Needs a display."""
+    import cv2
+
+    cap = cv2.VideoCapture(video_path)
+    ok, frame = cap.read()
+    cap.release()
+    if not ok:
+        raise RuntimeError("Could not read first frame for ROI selection.")
+
+    pts: list = []
+    WIN = "Click 4 corners (TL→TR→BR→BL), then ENTER  |  ESC to cancel"
+
+    def _redraw() -> None:
+        img = frame.copy()
+        for idx, p in enumerate(pts):
+            cv2.circle(img, p, 6, (0, 255, 0), -1)
+            cv2.putText(img, str(idx + 1), (p[0] + 8, p[1] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        if len(pts) > 1:
+            for idx in range(len(pts) - 1):
+                cv2.line(img, pts[idx], pts[idx + 1], (0, 255, 0), 2)
+            if len(pts) == 4:
+                cv2.line(img, pts[-1], pts[0], (0, 255, 0), 2)
+        cv2.imshow(WIN, img)
+
+    def _on_click(event, x, y, _flags, _param) -> None:
+        if event == cv2.EVENT_LBUTTONDOWN and len(pts) < 4:
+            pts.append((x, y))
+            _redraw()
+
+    cv2.namedWindow(WIN)
+    cv2.setMouseCallback(WIN, _on_click)
+    cv2.imshow(WIN, frame)
+
+    while True:
+        key = cv2.waitKey(50) & 0xFF
+        if key in (13, 10) and len(pts) == 4:   # Enter
+            break
+        if key == 27:                             # Escape
+            pts.clear()
+            break
+    cv2.destroyAllWindows()
+    return tuple(pts) if len(pts) == 4 else None  # type: ignore[return-value]
