@@ -22,11 +22,11 @@ class Config:
 
     # ---- audio: onset (ball-strike) detection ---------------------------
     onset_mean_win: float = 0.25    # s. Window for the adaptive threshold baseline.
-    onset_delta: float = 0.08       # Height above local mean to count as an onset.
+    onset_delta: float = 0.11       # Height above local mean to count as an onset.
     min_onset_sep: float = 0.10     # s. Two strikes can't be closer than this.
 
     # ---- audio: rally clustering ----------------------------------------
-    rally_max_gap: float = 2.0      # s. Max silence between strikes inside one rally.
+    rally_max_gap: float = 1.3      # s. Max silence between strikes inside one rally.
     rally_min_strikes: int = 2      # A "rally" needs at least this many strikes.
 
     # ---- motion classifier ----------------------------------------------
@@ -39,18 +39,18 @@ class Config:
 
     # ---- fusion ----------------------------------------------------------
     w_audio: float = 0.70           # Weight so audio alone clears `enter_thresh`.
-    w_motion: float = 0.28          # Reduced so adjacent-court motion can't tip borderline audio.
+    w_motion: float = 0.22          # Reduced further so non-ball motion can't extend live state.
     smooth_win: float = 0.5         # s. Median filter on the fused score.
 
     # ---- state machine (hysteresis = tighter for clay/adjacent courts) ---
-    enter_thresh: float = 0.58      # Go live above this...
-    exit_thresh: float = 0.32       # ...stay live until below this (enter > exit).
-    merge_gap: float = 1.0          # s. Bridge live spans separated by less than this.
-    min_rally_len: float = 0.8      # s. Drop live blips shorter than this.
+    enter_thresh: float = 0.60      # Go live above this...
+    exit_thresh: float = 0.40       # ...stay live until below this (enter > exit).
+    merge_gap: float = 0.5          # s. Bridge live spans separated by less than this.
+    min_rally_len: float = 1.0      # s. Drop live blips shorter than this.
 
     # ---- padding ---------------------------------------------------------
-    lead_in: float = 1.5            # s. Keep before each point starts.
-    lead_out: float = 1.3           # s. Keep after the last strike.
+    lead_in: float = 1.0            # s. Keep before each point starts.
+    lead_out: float = 0.8           # s. Keep after the last strike.
 
     def __post_init__(self) -> None:
         if self.enter_thresh <= self.exit_thresh:
