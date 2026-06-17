@@ -48,18 +48,6 @@ def _roi_slices(roi: Optional[Tuple[int, int, int, int]], scale: float, shape):
     return slice(y0, y1), slice(x0, x1)
 
 
-def _make_poly_mask(roi_poly, scale: float, shape) -> np.ndarray:
-    """Boolean mask (H×W) for an arbitrary N-point polygon in original-pixel coords."""
-    H, W = shape[:2]
-    pts = np.array(
-        [[int(x * scale), int(y * scale)] for x, y in roi_poly],
-        dtype=np.int32,
-    )
-    mask = np.zeros((H, W), dtype=np.uint8)
-    cv2.fillPoly(mask, [pts], 1)
-    return mask.astype(bool)
-
-
 class MotionClassifier:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
@@ -72,7 +60,6 @@ class MotionClassifier:
 
         times, energy = [], []
         prev = None
-        poly_mask = None
         ys = xs = None
         scale = 1.0
         i = 0
@@ -88,19 +75,11 @@ class MotionClassifier:
                                        interpolation=cv2.INTER_AREA)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 if ys is None:
-                    if cfg.roi_poly is not None:
-                        poly_mask = _make_poly_mask(cfg.roi_poly, scale, gray.shape)
-                        ys, xs = slice(None), slice(None)
-                    else:
-                        ys, xs = _roi_slices(cfg.roi, scale, gray.shape)
+                    ys, xs = _roi_slices(cfg.roi, scale, gray.shape)
                 crop = gray[ys, xs]
                 if prev is not None:
                     diff = cv2.absdiff(crop, prev)
-                    if poly_mask is not None:
-                        px = diff[poly_mask]
-                        energy.append(float(px.mean()) if px.size else 0.0)
-                    else:
-                        energy.append(float(diff.mean()))
+                    energy.append(float(diff.mean()))
                     times.append(i / fps)
                 prev = crop
             i += 1
