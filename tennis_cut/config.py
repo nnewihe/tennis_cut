@@ -21,9 +21,11 @@ class Config:
     audio_hop: int = 256            # STFT hop -> ~86 envelope frames/sec.
 
     # ---- audio: onset (ball-strike) detection ---------------------------
-    onset_mean_win: float = 0.25    # s. Window for the adaptive threshold baseline.
-    onset_delta: float = 0.11       # Height above local mean to count as an onset.
+    onset_mean_win: float = 0.25    # s. Window for the adaptive (median) threshold baseline.
+    onset_delta: float = 0.11       # Height above local median to count as an onset.
     min_onset_sep: float = 0.10     # s. Two strikes can't be closer than this.
+    onset_band_lo_hz: float = 1000.0  # Hz. Exclude rumble (trains, traffic, wind) below this.
+    onset_band_hi_hz: float = 9000.0  # Hz. Upper edge of the ball-strike flux band.
 
     # ---- audio: rally clustering ----------------------------------------
     rally_max_gap: float = 1.8      # s. Max silence between strikes inside one rally.

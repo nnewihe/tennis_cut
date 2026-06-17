@@ -19,7 +19,7 @@ from typing import List, Tuple
 
 import numpy as np
 from scipy.io import wavfile
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import median_filter
 from scipy.signal import stft
 
 from .config import Config
@@ -50,13 +50,21 @@ def extract_audio(video_path: str, sr: int) -> np.ndarray:
 
 
 def onset_envelope(y: np.ndarray, cfg: Config) -> Tuple[np.ndarray, np.ndarray]:
-    """Spectral-flux onset envelope. Returns (times, env)."""
+    """Band-limited spectral-flux onset envelope. Returns (times, env).
+
+    Summing flux over the full spectrum lets low-frequency rumble (passing
+    trains, traffic, wind) dominate the envelope and bury the ball-strike
+    transient. Restricting to `onset_band_lo_hz`-`onset_band_hi_hz` keeps the
+    strike's broadband click, which is concentrated in the mid/high range,
+    while excluding the band rumble lives in.
+    """
     noverlap = cfg.n_fft - cfg.audio_hop
     f, t, Z = stft(
         y, fs=cfg.audio_sr, nperseg=cfg.n_fft, noverlap=noverlap,
         boundary=None, padded=False,
     )
-    mag = np.abs(Z)
+    band = (f >= cfg.onset_band_lo_hz) & (f <= cfg.onset_band_hi_hz)
+    mag = np.abs(Z[band])
     # Positive first-difference of magnitude, summed over frequency = spectral flux.
     flux = np.maximum(0.0, np.diff(mag, axis=1)).sum(axis=0)
     return t[1:], flux
@@ -69,8 +77,11 @@ def detect_onsets(times: np.ndarray, env: np.ndarray, cfg: Config) -> np.ndarray
     env = env / (env.max() + _EPS)
 
     frame_dt = float(np.median(np.diff(times))) if times.size > 1 else cfg.grid_hop
-    win = max(1, int(round(cfg.onset_mean_win / frame_dt)))
-    local_mean = uniform_filter1d(env, size=win, mode="nearest")
+    win = max(1, int(round(cfg.onset_mean_win / frame_dt))) | 1  # force odd for median_filter
+    # Median (not mean) baseline: a burst of noise (train clatter, a passing
+    # car) pulls a mean filter way up, raising the threshold and burying real
+    # strikes; the median shrugs off short bursts and tracks the steady floor.
+    local_mean = median_filter(env, size=win, mode="nearest")
     thresh = local_mean + cfg.onset_delta
 
     # Local maxima strictly above the adaptive threshold.
