@@ -4,8 +4,8 @@
     python -m tennis_cut.cli match.mp4 --dry-run                            # just print segments + ffmpeg cmd
     python -m tennis_cut.cli match.mp4 --select-roi -o cut.mp4             # drag a rectangle
     python -m tennis_cut.cli match.mp4 --roi 120 80 1600 700 -o cut.mp4   # rectangle by coords
-    python -m tennis_cut.cli match.mp4 --select-roi-trap -o cut.mp4        # click 4 corners
-    python -m tennis_cut.cli match.mp4 --roi-trap 200 80 1500 80 1700 900 100 900 -o cut.mp4
+    python -m tennis_cut.cli match.mp4 --select-roi-poly -o cut.mp4        # click up to 8 boundary points
+    python -m tennis_cut.cli match.mp4 --roi-poly 200 80 900 60 1500 80 1700 500 1700 900 900 950 100 900 60 500 -o cut.mp4
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import json
 import sys
 
 from .config import Config
-from .cut_video import ffmpeg_cmd_string, render, select_roi, select_roi_trap
+from .cut_video import ffmpeg_cmd_string, render, select_roi, select_roi_poly
 from .segmenter import segment_video
 
 
@@ -30,11 +30,11 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="Interactively drag a rectangular court ROI.")
     roi.add_argument("--roi", nargs=4, type=int, metavar=("X", "Y", "W", "H"),
                      help="Rectangular court ROI in original pixels.")
-    roi.add_argument("--select-roi-trap", action="store_true",
-                     help="Click 4 court corners (TL→TR→BR→BL) for a trapezoidal ROI.")
-    roi.add_argument("--roi-trap", nargs=8, type=int,
-                     metavar=("X1", "Y1", "X2", "Y2", "X3", "Y3", "X4", "Y4"),
-                     help="Trapezoidal court ROI: 4 corner points TL TR BR BL in original pixels.")
+    roi.add_argument("--select-roi-poly", action="store_true",
+                     help="Click up to 8 boundary points (right-click=undo, c=close early) "
+                          "for a polygon ROI — use a concave shape to exclude a near-camera area.")
+    roi.add_argument("--roi-poly", nargs="+", type=int, metavar="X Y ...",
+                     help="Polygon ROI: 3-8 boundary points as flat x y pairs, in original pixels.")
 
     # A few of the most-tuned knobs exposed directly; everything else lives in Config.
     p.add_argument("--motion-fps", type=float, help="Visual sampling rate (main compute knob).")
@@ -48,10 +48,13 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     cfg = Config()
-    if args.roi_trap:
-        cfg.roi_trap = tuple(zip(args.roi_trap[::2], args.roi_trap[1::2]))  # type: ignore[assignment]
-    elif args.select_roi_trap:
-        cfg.roi_trap = select_roi_trap(args.video)
+    if args.roi_poly:
+        if len(args.roi_poly) % 2 != 0 or not (6 <= len(args.roi_poly) <= 16):
+            print("--roi-poly needs 3 to 8 points as flat x y pairs (6-16 ints).", file=sys.stderr)
+            return 2
+        cfg.roi_poly = tuple(zip(args.roi_poly[::2], args.roi_poly[1::2]))  # type: ignore[assignment]
+    elif args.select_roi_poly:
+        cfg.roi_poly = select_roi_poly(args.video)
     elif args.roi:
         cfg.roi = tuple(args.roi)            # type: ignore[assignment]
     elif args.select_roi:

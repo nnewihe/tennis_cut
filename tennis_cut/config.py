@@ -22,12 +22,12 @@ class Config:
 
     # ---- audio: onset (ball-strike) detection ---------------------------
     onset_mean_win: float = 0.25    # s. Window for the adaptive threshold baseline.
-    onset_delta: float = 0.10       # Height above local mean to count as an onset.
+    onset_delta: float = 0.08       # Height above local mean to count as an onset.
     min_onset_sep: float = 0.10     # s. Two strikes can't be closer than this.
 
     # ---- audio: rally clustering ----------------------------------------
-    rally_max_gap: float = 1.5      # s. Max silence between strikes inside one rally.
-    rally_min_strikes: int = 4      # A "rally" needs at least this many strikes.
+    rally_max_gap: float = 2.0      # s. Max silence between strikes inside one rally.
+    rally_min_strikes: int = 2      # A "rally" needs at least this many strikes.
 
     # ---- motion classifier ----------------------------------------------
     motion_fps: float = 5.0         # Sample rate for the visual pass (the main compute knob).
@@ -35,7 +35,7 @@ class Config:
     motion_lo_pct: float = 10.0     # Robust-normalisation low percentile.
     motion_hi_pct: float = 90.0     # Robust-normalisation high percentile (~rally level).
     roi: Optional[Tuple[int, int, int, int]] = None  # (x, y, w, h) in *original* px, or None=full frame.
-    roi_trap: Optional[Tuple[Tuple[int, int], ...]] = None  # 4 (x,y) points in original px (TL→TR→BR→BL). Overrides roi.
+    roi_poly: Optional[Tuple[Tuple[int, int], ...]] = None  # N (x,y) points in original px, clockwise, defining the active-play region (e.g. an 8-point shape that excludes a near-camera conversation area). Overrides roi.
 
     # ---- fusion ----------------------------------------------------------
     w_audio: float = 0.70           # Weight so audio alone clears `enter_thresh`.
@@ -44,18 +44,18 @@ class Config:
 
     # ---- state machine (hysteresis = tighter for clay/adjacent courts) ---
     enter_thresh: float = 0.58      # Go live above this...
-    exit_thresh: float = 0.38       # ...stay live until below this (enter > exit).
-    merge_gap: float = 0.6          # s. Bridge live spans separated by less than this.
-    min_rally_len: float = 1.0      # s. Drop live blips shorter than this.
+    exit_thresh: float = 0.32       # ...stay live until below this (enter > exit).
+    merge_gap: float = 1.0          # s. Bridge live spans separated by less than this.
+    min_rally_len: float = 0.8      # s. Drop live blips shorter than this.
 
     # ---- padding ---------------------------------------------------------
-    lead_in: float = 1.0            # s. Keep before each point starts.
-    lead_out: float = 0.8           # s. Keep after the last strike.
+    lead_in: float = 1.5            # s. Keep before each point starts.
+    lead_out: float = 1.3           # s. Keep after the last strike.
 
     def __post_init__(self) -> None:
         if self.enter_thresh <= self.exit_thresh:
             raise ValueError("enter_thresh must be > exit_thresh (hysteresis).")
         if self.grid_hop <= 0:
             raise ValueError("grid_hop must be positive.")
-        if self.roi is not None and self.roi_trap is not None:
-            raise ValueError("Specify roi or roi_trap, not both.")
+        if self.roi is not None and self.roi_poly is not None:
+            raise ValueError("Specify roi or roi_poly, not both.")

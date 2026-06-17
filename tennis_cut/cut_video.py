@@ -60,8 +60,15 @@ def select_roi(video_path: str) -> Optional[Tuple[int, int, int, int]]:
     return None if w == 0 or h == 0 else (x, y, w, h)
 
 
-def select_roi_trap(video_path: str) -> Optional[Tuple[Tuple[int, int], ...]]:
-    """Click 4 court corners (TL → TR → BR → BL), then press ENTER. Needs a display."""
+def select_roi_poly(video_path: str, n_points: int = 8) -> Optional[Tuple[Tuple[int, int], ...]]:
+    """Click up to `n_points` corners of the active-play region, then press ENTER.
+
+    Click points in order around the boundary (clockwise or counter-clockwise).
+    Use this to carve a concave shape — e.g. an 8-point outline that follows the
+    court trapezoid but cuts a notch out near the camera where people stand and
+    talk between points. Right-click undoes the last point; 'c' closes the
+    polygon early with fewer than `n_points`. Needs a display.
+    """
     import cv2
 
     cap = cv2.VideoCapture(video_path)
@@ -71,7 +78,8 @@ def select_roi_trap(video_path: str) -> Optional[Tuple[Tuple[int, int], ...]]:
         raise RuntimeError("Could not read first frame for ROI selection.")
 
     pts: list = []
-    WIN = "Click 4 corners (TL→TR→BR→BL), then ENTER  |  ESC to cancel"
+    WIN = (f"Click up to {n_points} boundary points, ENTER to finish  |  "
+           "right-click=undo, c=close early, ESC=cancel")
 
     def _redraw() -> None:
         img = frame.copy()
@@ -82,13 +90,16 @@ def select_roi_trap(video_path: str) -> Optional[Tuple[Tuple[int, int], ...]]:
         if len(pts) > 1:
             for idx in range(len(pts) - 1):
                 cv2.line(img, pts[idx], pts[idx + 1], (0, 255, 0), 2)
-            if len(pts) == 4:
+            if len(pts) == n_points:
                 cv2.line(img, pts[-1], pts[0], (0, 255, 0), 2)
         cv2.imshow(WIN, img)
 
     def _on_click(event, x, y, _flags, _param) -> None:
-        if event == cv2.EVENT_LBUTTONDOWN and len(pts) < 4:
+        if event == cv2.EVENT_LBUTTONDOWN and len(pts) < n_points:
             pts.append((x, y))
+            _redraw()
+        elif event == cv2.EVENT_RBUTTONDOWN and pts:
+            pts.pop()
             _redraw()
 
     cv2.namedWindow(WIN)
@@ -97,10 +108,12 @@ def select_roi_trap(video_path: str) -> Optional[Tuple[Tuple[int, int], ...]]:
 
     while True:
         key = cv2.waitKey(50) & 0xFF
-        if key in (13, 10) and len(pts) == 4:   # Enter
+        if key in (13, 10) and len(pts) == n_points:  # Enter, full set placed
             break
-        if key == 27:                             # Escape
+        if key == ord('c') and len(pts) >= 3:          # close early
+            break
+        if key == 27:                                   # Escape
             pts.clear()
             break
     cv2.destroyAllWindows()
-    return tuple(pts) if len(pts) == 4 else None  # type: ignore[return-value]
+    return tuple(pts) if len(pts) >= 3 else None  # type: ignore[return-value]
