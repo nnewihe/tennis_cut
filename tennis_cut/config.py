@@ -26,7 +26,7 @@ class Config:
     min_onset_sep: float = 0.10     # s. Two strikes can't be closer than this.
 
     # ---- audio: rally clustering ----------------------------------------
-    rally_max_gap: float = 1.3      # s. Max silence between strikes inside one rally.
+    rally_max_gap: float = 1.8      # s. Max silence between strikes inside one rally.
     rally_min_strikes: int = 2      # A "rally" needs at least this many strikes.
 
     # ---- motion classifier ----------------------------------------------
@@ -45,7 +45,7 @@ class Config:
     # ---- state machine (hysteresis = tighter for clay/adjacent courts) ---
     enter_thresh: float = 0.60      # Go live above this...
     exit_thresh: float = 0.40       # ...stay live until below this (enter > exit).
-    merge_gap: float = 0.5          # s. Bridge live spans separated by less than this.
+    merge_gap: float = 4.0          # s. Bridge live spans separated by less than this.
     min_rally_len: float = 1.0      # s. Drop live blips shorter than this.
 
     # ---- padding ---------------------------------------------------------
